@@ -1,0 +1,449 @@
+<title>Throne Tally</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fredoka:wght@500;600;700&family=Atkinson+Hyperlegible:wght@400;700&display=swap">
+<style>
+/* Layout: one thumb-reach column — scoreboard, two big log buttons, today's log, past crowns. */
+:root {
+  --bg: #F1F5F8;
+  --surface: #FFFFFF;
+  --ink: #18222D;
+  --muted: #5B6978;
+  --line: #D9E1E8;
+  --pee: #D9A800;
+  --pee-ink: #5A4500;
+  --pee-soft: #FFF3BF;
+  --poo: #7A4A2A;
+  --poo-ink: #4A2A14;
+  --poo-soft: #F2E5D9;
+  --gold: #B88700;
+  --danger: #B3261E;
+  --display: "Fredoka", "Trebuchet MS", system-ui, sans-serif;
+  --body: "Atkinson Hyperlegible", system-ui, -apple-system, sans-serif;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #0E1317; --surface: #172027; --ink: #E7EDF2; --muted: #98A6B4; --line: #26323C;
+    --pee: #F2C624; --pee-ink: #FCE79A; --pee-soft: #352D0C;
+    --poo: #C68D61; --poo-ink: #F0D3BC; --poo-soft: #33241A;
+    --gold: #F2C624; --danger: #FF8A80;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #0E1317; --surface: #172027; --ink: #E7EDF2; --muted: #98A6B4; --line: #26323C;
+  --pee: #F2C624; --pee-ink: #FCE79A; --pee-soft: #352D0C;
+  --poo: #C68D61; --poo-ink: #F0D3BC; --poo-soft: #33241A;
+  --gold: #F2C624; --danger: #FF8A80;
+  color-scheme: dark;
+}
+html, body { min-height: 100%; }
+body {
+  background: var(--bg); color: var(--ink);
+  font-family: var(--body); font-size: 16px; line-height: 1.45;
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+  padding-block: 20px 48px;
+}
+.app { max-width: 480px; margin: 0 auto; display: flex; flex-direction: column; gap: 22px; }
+h1, h2 { font-family: var(--display); margin: 0; text-wrap: balance; }
+h1 { font-size: 30px; font-weight: 700; letter-spacing: -0.01em; }
+h2 { font-size: 13px; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); }
+.top { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; }
+.date { color: var(--muted); font-size: 14px; }
+.num { font-variant-numeric: tabular-nums; }
+svg.ic { width: 1em; height: 1em; fill: currentColor; flex: none; }
+
+/* Scoreboard */
+.board { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.player {
+  background: var(--surface); border: 1px solid var(--line); border-radius: 18px;
+  padding: 14px; display: flex; flex-direction: column; gap: 6px; position: relative; min-width: 0;
+}
+.player.lead { border-color: var(--gold); box-shadow: 0 0 0 2px color-mix(in srgb, var(--gold) 30%, transparent); }
+.who { display: flex; align-items: center; gap: 8px; min-width: 0; }
+.who img { width: 26px; height: 26px; border-radius: 50%; flex: none; }
+.who span { font-weight: 700; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.score { font-family: var(--display); font-size: 52px; font-weight: 700; line-height: 1; }
+.split { display: flex; gap: 12px; color: var(--muted); font-size: 14px; }
+.split span { display: inline-flex; align-items: center; gap: 4px; }
+.split .p svg { color: var(--pee); } .split .d svg { color: var(--poo); }
+.crown { position: absolute; top: 10px; right: 12px; color: var(--gold); width: 26px; height: 26px; }
+.player.empty { border-style: dashed; color: var(--muted); justify-content: center; font-size: 14px; }
+.status { font-size: 14px; color: var(--muted); text-align: center; margin-top: -8px; }
+
+/* Log buttons */
+.actions { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.big {
+  font: 600 22px var(--display); border-radius: 22px; padding: 22px 12px; cursor: pointer;
+  display: flex; flex-direction: column; align-items: center; gap: 6px; border: 2px solid;
+  transition: transform .08s ease;
+}
+.big svg { width: 44px; height: 44px; }
+.big:active { transform: scale(.97); }
+.big:focus-visible, .chip:focus-visible, button:focus-visible { outline: 3px solid var(--ink); outline-offset: 2px; }
+.big.pee { background: var(--pee-soft); border-color: var(--pee); color: var(--pee-ink); }
+.big.pee svg { color: var(--pee); }
+.big.poo { background: var(--poo-soft); border-color: var(--poo); color: var(--poo-ink); }
+.big.poo svg { color: var(--poo); }
+.big:disabled { opacity: .45; cursor: not-allowed; }
+
+/* Lists */
+section { display: flex; flex-direction: column; gap: 10px; }
+.list { background: var(--surface); border: 1px solid var(--line); border-radius: 18px; overflow: hidden; }
+.row { display: flex; align-items: center; gap: 12px; padding: 12px 14px; border-top: 1px solid var(--line); }
+.row:first-child { border-top: 0; }
+.row .k { width: 34px; height: 34px; border-radius: 50%; display: grid; place-items: center; flex: none; }
+.row .k.pee { background: var(--pee-soft); color: var(--pee); }
+.row .k.poo { background: var(--poo-soft); color: var(--poo); }
+.row .k svg { width: 20px; height: 20px; }
+.row .body { flex: 1; min-width: 0; }
+.row .line1 { font-weight: 700; }
+.row .line1 time { font-weight: 400; color: var(--muted); }
+.row .tags { color: var(--muted); font-size: 14px; }
+.row .del {
+  background: none; border: 1px solid transparent; color: var(--muted); border-radius: 10px;
+  font: 14px var(--body); padding: 6px 10px; cursor: pointer; flex: none;
+}
+.row .del.armed { color: var(--danger); border-color: var(--danger); }
+.empty-note { padding: 18px 14px; color: var(--muted); font-size: 15px; }
+.day .line1 { display: flex; align-items: center; gap: 6px; }
+.day .line1 svg { color: var(--gold); width: 18px; height: 18px; }
+.wins { display: flex; gap: 8px; flex-wrap: wrap; }
+.pill { background: var(--surface); border: 1px solid var(--line); border-radius: 999px; padding: 4px 12px; font-size: 14px; display: inline-flex; gap: 6px; align-items: center; }
+.pill svg { color: var(--gold); }
+
+/* Detail sheet */
+.scrim { position: fixed; inset: 0; background: rgb(0 0 0 / .45); z-index: 20; }
+.sheet {
+  position: fixed; left: 0; right: 0; bottom: 0; z-index: 21;
+  background: var(--surface); border-radius: 24px 24px 0 0; border-top: 1px solid var(--line);
+  padding-top: 18px;
+  padding-bottom: calc(18px + env(safe-area-inset-bottom, 0px));
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+}
+.sheet-in { max-width: 480px; margin: 0 auto; display: flex; flex-direction: column; gap: 16px; }
+.sheet h3 { font: 600 24px var(--display); margin: 0; display: flex; align-items: center; gap: 8px; }
+.sheet .hint { color: var(--muted); font-size: 14px; margin: -10px 0 0; }
+.chips { display: flex; flex-wrap: wrap; gap: 8px; }
+.chip {
+  font: 700 16px var(--body); padding: 10px 16px; border-radius: 999px; cursor: pointer;
+  background: var(--bg); border: 1.5px solid var(--line); color: var(--ink);
+}
+.chip[aria-pressed="true"] { background: var(--ink); color: var(--surface); border-color: var(--ink); }
+.sheet-btns { display: grid; grid-template-columns: auto 1fr; gap: 10px; }
+.btn { font: 600 18px var(--display); padding: 14px 18px; border-radius: 16px; cursor: pointer; border: 1.5px solid var(--line); background: var(--bg); color: var(--ink); }
+.btn.go.pee { background: var(--pee); border-color: var(--pee); color: #2B2100; }
+.btn.go.poo { background: var(--poo); border-color: var(--poo); color: #FFF7F0; }
+
+.toast {
+  position: fixed; left: 50%; transform: translateX(-50%); z-index: 30;
+  bottom: calc(20px + env(safe-area-inset-bottom, 0px));
+  background: var(--ink); color: var(--surface); padding: 10px 18px; border-radius: 999px; font-weight: 700;
+  max-width: calc(100% - 32px);
+}
+.notice { background: var(--surface); border: 1px solid var(--line); border-radius: 14px; padding: 12px 14px; font-size: 14px; color: var(--muted); }
+@media (prefers-reduced-motion: reduce) { .big { transition: none; } }
+</style>
+
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <symbol id="i-pee" viewBox="0 0 24 24"><path d="M12 2.2c-3.7 4.8-6.4 8.4-6.4 11.9a6.4 6.4 0 0 0 12.8 0c0-3.5-2.7-7.1-6.4-11.9zm-2.6 12.4a.9.9 0 0 1 .9.9c0 1.1.8 2 1.9 2.2a.9.9 0 1 1-.3 1.8 4 4 0 0 1-3.4-4 .9.9 0 0 1 .9-.9z"/></symbol>
+  <symbol id="i-poo" viewBox="0 0 24 24"><path d="M12.6 2.4c.5 1.6 2.2 2.3 2.2 4 0 .8-.3 1.4-.8 1.9h.9a2.6 2.6 0 0 1 2.4 3.6h.3a2.8 2.8 0 0 1 .4 5.6h.5a2.7 2.7 0 0 1 0 5.4H5.5a2.7 2.7 0 0 1 0-5.4H6a2.8 2.8 0 0 1 .4-5.6h.3A2.6 2.6 0 0 1 9.1 8.3h1.3c-.6-.3-1-.9-1-1.7 0-1.9 2.4-2.1 3.2-4.2z"/></symbol>
+  <symbol id="i-crown" viewBox="0 0 24 24"><path d="M3 7.5l4.5 4L12 4.5l4.5 7 4.5-4-1.8 10.5H4.8L3 7.5zM5 19.5h14v2H5z"/></symbol>
+</svg>
+
+<main class="app">
+  <header class="top">
+    <h1>Throne Tally</h1>
+    <span class="date" id="date"></span>
+  </header>
+
+  <div id="notice" class="notice" hidden></div>
+
+  <section aria-labelledby="h-today">
+    <h2 id="h-today">Today's standings</h2>
+    <div class="board" id="board">
+      <div class="player empty">Loading the scores…</div>
+      <div class="player empty">Most trips by midnight wins the day.</div>
+    </div>
+  </section>
+  <p class="status" id="status">Most trips by midnight takes the crown.</p>
+
+  <div class="actions">
+    <button class="big pee" id="btn-pee" type="button" disabled><svg class="ic"><use href="#i-pee"/></svg>Pee</button>
+    <button class="big poo" id="btn-poo" type="button" disabled><svg class="ic"><use href="#i-poo"/></svg>Poo</button>
+  </div>
+
+  <section aria-labelledby="h-log">
+    <h2 id="h-log">Today's log</h2>
+    <div class="list" id="log"><div class="empty-note">No trips yet today. Tap Pee or Poo above to log the first one.</div></div>
+  </section>
+
+  <section aria-labelledby="h-past">
+    <h2 id="h-past">Past crowns (last 30 days)</h2>
+    <div class="wins" id="wins"></div>
+    <div class="list" id="past"><div class="empty-note">Finished days show up here with their winner.</div></div>
+  </section>
+</main>
+
+<div class="scrim" id="scrim" hidden></div>
+<div class="sheet" id="sheet" role="dialog" aria-modal="true" aria-labelledby="sheet-title" hidden>
+  <div class="sheet-in">
+    <h3 id="sheet-title"></h3>
+    <p class="hint">Pick any that fit, or just log it.</p>
+    <div class="chips" id="chips"></div>
+    <div class="sheet-btns">
+      <button class="btn" id="cancel" type="button">Cancel</button>
+      <button class="btn go" id="save" type="button">Log it</button>
+    </div>
+  </div>
+</div>
+<div class="toast" id="toast" role="status" hidden></div>
+
+<script>
+const OPTIONS = {
+  pee: ["Clear", "Pale", "Yellow", "Dark", "Neon", "Green", "Smelly", "Long one"],
+  poo: ["Hard", "Soft", "In-between", "Big", "Small", "Pebbles", "Runny", "Smelly"],
+};
+const LABEL = { pee: "Pee", poo: "Poo" };
+const WINDOW_DAYS = 30;
+
+const $ = (id) => document.getElementById(id);
+const pad = (n) => String(n).padStart(2, "0");
+const dayKey = (d) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+const icon = (name) => `<svg class="ic"><use href="#i-${name}"/></svg>`;
+const fmtTime = (ms) => new Date(ms).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
+const fmtDay = (key) => {
+  const [y, m, d] = key.split("-").map(Number);
+  return new Date(y, m - 1, d).toLocaleDateString([], { weekday: "short", month: "short", day: "numeric" });
+};
+
+let db = null, user = null, myId = null;
+let logs = [];            // [{id, by, kind, tags, at, day}]
+let today = dayKey(new Date());
+let sheetKind = null;
+let picked = new Set();
+let renderSeq = 0;
+
+function toast(msg) {
+  const t = $("toast");
+  t.textContent = msg; t.hidden = false;
+  clearTimeout(toast.timer);
+  toast.timer = setTimeout(() => { t.hidden = true; }, 2200);
+}
+function notice(msg) { const n = $("notice"); n.textContent = msg; n.hidden = !msg; }
+
+function tally(rows) {
+  const by = {};
+  for (const r of rows) {
+    const t = by[r.by] || (by[r.by] = { total: 0, pee: 0, poo: 0 });
+    t.total++; t[r.kind]++;
+  }
+  return by;
+}
+function leaders(t) {
+  const ids = Object.keys(t);
+  if (!ids.length) return [];
+  const best = Math.max(...ids.map((i) => t[i].total));
+  return ids.filter((i) => t[i].total === best);
+}
+
+async function render() {
+  const seq = ++renderSeq;
+  today = dayKey(new Date());
+  $("date").textContent = new Date().toLocaleDateString([], { weekday: "short", month: "short", day: "numeric" });
+
+  const todays = logs.filter((r) => r.day === today).sort((a, b) => b.at - a.at);
+  const t = tally(todays);
+  const players = new Set(Object.keys(t));
+  if (myId) players.add(myId);
+  for (const r of logs) players.add(r.by);
+
+  const ids = [...players];
+  const ps = user && ids.length ? await user.profiles(ids) : {};
+  if (seq !== renderSeq) return;
+  const nameOf = (id) => id === myId ? "You" : ((ps[id]?.name || "").split(" ")[0] || "Rival");
+  const avatarOf = (id) => ps[id]?.avatarUrl || "";
+
+  // Scoreboard: me first, then everyone else by score.
+  const order = ids.sort((a, b) => (b === myId) - (a === myId) || (t[b]?.total || 0) - (t[a]?.total || 0));
+  const lead = leaders(t);
+  const board = $("board");
+  board.replaceChildren();
+  for (const id of order) {
+    const s = t[id] || { total: 0, pee: 0, poo: 0 };
+    const el = document.createElement("div");
+    const isLead = lead.length === 1 && lead[0] === id;
+    el.className = "player" + (isLead ? " lead" : "");
+    el.innerHTML = `
+      ${isLead ? `<svg class="crown"><use href="#i-crown"/></svg>` : ""}
+      <div class="who"><img alt=""><span></span></div>
+      <div class="score num">${s.total}</div>
+      <div class="split num"><span class="p">${icon("pee")}${s.pee}</span><span class="d">${icon("poo")}${s.poo}</span></div>`;
+    el.querySelector("img").src = avatarOf(id);
+    el.querySelector(".who span").textContent = nameOf(id);
+    board.append(el);
+  }
+  if (order.length < 2) {
+    const el = document.createElement("div");
+    el.className = "player empty";
+    el.textContent = "Your rival appears here after their first log.";
+    board.append(el);
+  }
+
+  // Status line
+  let status = "Most trips by midnight takes the crown.";
+  if (lead.length === 1 && order.length > 1) {
+    const second = Math.max(0, ...order.filter((i) => i !== lead[0]).map((i) => t[i]?.total || 0));
+    const gap = t[lead[0]].total - second;
+    status = lead[0] === myId ? `You lead by ${gap}. Hold the throne until midnight.` : `${nameOf(lead[0])} leads by ${gap}. Hydrate.`;
+  } else if (lead.length > 1) {
+    status = `Tied at ${t[lead[0]].total}. Next trip takes the lead.`;
+  }
+  $("status").textContent = status;
+
+  // Today's log
+  const log = $("log");
+  log.replaceChildren();
+  if (!todays.length) {
+    log.innerHTML = `<div class="empty-note">No trips yet today. Tap Pee or Poo above to log the first one.</div>`;
+  }
+  for (const r of todays) {
+    const row = document.createElement("div");
+    row.className = "row";
+    row.innerHTML = `<div class="k ${r.kind}">${icon(r.kind)}</div>
+      <div class="body"><div class="line1"><span class="n"></span> <time></time></div><div class="tags"></div></div>`;
+    row.querySelector(".n").textContent = `${nameOf(r.by)} · ${LABEL[r.kind]}`;
+    row.querySelector("time").textContent = fmtTime(r.at);
+    row.querySelector(".tags").textContent = r.tags?.length ? r.tags.join(", ") : "No details";
+    if (r.by === myId) {
+      const del = document.createElement("button");
+      del.className = "del"; del.type = "button"; del.textContent = "Remove";
+      del.addEventListener("click", () => removeLog(r.id, del));
+      row.append(del);
+    }
+    log.append(row);
+  }
+
+  // Past days
+  const byDay = {};
+  for (const r of logs) if (r.day < today) (byDay[r.day] ||= []).push(r);
+  const days = Object.keys(byDay).sort().reverse();
+  const crowns = {};
+  const past = $("past");
+  past.replaceChildren();
+  if (!days.length) past.innerHTML = `<div class="empty-note">Finished days show up here with their winner.</div>`;
+  for (const d of days) {
+    const dt = tally(byDay[d]);
+    const w = leaders(dt);
+    if (w.length === 1) crowns[w[0]] = (crowns[w[0]] || 0) + 1;
+    const scores = Object.keys(dt).sort((a, b) => dt[b].total - dt[a].total).map((i) => `${nameOf(i)} ${dt[i].total}`).join(" · ");
+    const row = document.createElement("div");
+    row.className = "row day";
+    row.innerHTML = `<div class="body"><div class="line1">${w.length === 1 ? icon("crown") : ""}<span class="n"></span></div><div class="tags num"></div></div>`;
+    row.querySelector(".n").textContent = `${fmtDay(d)}: ${w.length === 1 ? nameOf(w[0]) + " won" : "Tie"}`;
+    row.querySelector(".tags").textContent = scores;
+    past.append(row);
+  }
+  const wins = $("wins");
+  wins.replaceChildren();
+  for (const id of order) {
+    const p = document.createElement("span");
+    p.className = "pill num";
+    p.innerHTML = `${icon("crown")}<span></span>`;
+    p.querySelector("span").textContent = `${nameOf(id)}: ${crowns[id] || 0}`;
+    wins.append(p);
+  }
+}
+
+function openSheet(kind) {
+  sheetKind = kind; picked = new Set();
+  $("sheet-title").innerHTML = `${icon(kind)}<span></span>`;
+  $("sheet-title").querySelector("svg").style.color = `var(--${kind})`;
+  $("sheet-title").querySelector("span").textContent = `Log a ${LABEL[kind].toLowerCase()}`;
+  const chips = $("chips");
+  chips.replaceChildren();
+  OPTIONS[kind].forEach((opt, i) => {
+    const b = document.createElement("button");
+    b.className = "chip"; b.type = "button"; b.id = `chip-${kind}-${i}`;
+    b.textContent = opt; b.setAttribute("aria-pressed", "false");
+    b.addEventListener("click", () => {
+      picked.has(opt) ? picked.delete(opt) : picked.add(opt);
+      b.setAttribute("aria-pressed", String(picked.has(opt)));
+    });
+    chips.append(b);
+  });
+  $("save").className = `btn go ${kind}`;
+  $("save").textContent = `Log ${LABEL[kind].toLowerCase()}`;
+  $("scrim").hidden = false; $("sheet").hidden = false;
+  $("save").focus();
+}
+function closeSheet() { $("scrim").hidden = true; $("sheet").hidden = true; sheetKind = null; }
+
+async function saveLog() {
+  if (!db || !myId || !sheetKind) return;
+  const kind = sheetKind;
+  const tags = OPTIONS[kind].filter((o) => picked.has(o));
+  closeSheet();
+  try {
+    const now = new Date();
+    await db.collection("logs").add({ by: myId, kind, tags, at: now.getTime(), day: dayKey(now) });
+    toast(`${LABEL[kind]} logged`);
+  } catch (e) {
+    if (e?.code === "invalid_argument") {
+      notice("You can view the scores but not log. Ask the owner to give you Contributor access in the Share menu.");
+      setButtons(false);
+    } else if (e?.code === "quota_exceeded") {
+      toast("The tally is full. Ask the owner to clear old days.");
+    } else {
+      toast("Couldn't log that. Check your connection and try again.");
+    }
+  }
+}
+
+async function removeLog(id, btn) {
+  if (!btn.classList.contains("armed")) {
+    btn.classList.add("armed"); btn.textContent = "Tap to confirm";
+    setTimeout(() => { btn.classList.remove("armed"); btn.textContent = "Remove"; }, 3000);
+    return;
+  }
+  try { await db.doc(`logs/${id}`).delete(); toast("Removed"); }
+  catch { toast("Couldn't remove that. Try again."); }
+}
+
+function setButtons(on) { $("btn-pee").disabled = !on; $("btn-poo").disabled = !on; }
+
+$("btn-pee").addEventListener("click", () => openSheet("pee"));
+$("btn-poo").addEventListener("click", () => openSheet("poo"));
+$("cancel").addEventListener("click", closeSheet);
+$("scrim").addEventListener("click", closeSheet);
+$("save").addEventListener("click", saveLog);
+document.addEventListener("keydown", (e) => { if (e.key === "Escape" && sheetKind) closeSheet(); });
+
+// Re-render when the clock passes midnight so yesterday moves to "Past crowns".
+setInterval(() => { if (dayKey(new Date()) !== today) render(); }, 60000);
+
+(async function start() {
+  render();
+  if (!window.claude?.use) { notice("Open this page in claude.ai, signed in, to log trips."); return; }
+  [db, user] = await Promise.all([claude.use("db"), claude.use("user")]);
+  myId = user ? await user.id() : null;
+  if (!db || !myId) {
+    notice("Sign in to claude.ai and open this shared page to join the competition.");
+    render();
+    return;
+  }
+  if ((await user.can("data.write")) === false) {
+    notice("You can view the scores but not log. Ask the owner to give you Contributor access in the Share menu.");
+  } else {
+    setButtons(true);
+  }
+  const since = new Date(); since.setDate(since.getDate() - WINDOW_DAYS);
+  db.collection("logs").where("day", ">=", dayKey(since)).onSnapshot(
+    (snap) => { logs = snap.docs.map((d) => ({ id: d.id, ...d.data() })); render(); },
+    () => notice("Lost the live connection to the scores. Reload the page to reconnect.")
+  );
+  render();
+})();
+</script>

@@ -1,0 +1,83 @@
+@import "tailwindcss";
+
+/* Design tokens. Light values live in @theme (which also generates the
+   Tailwind utilities); dark values override the same custom properties. */
+@theme {
+  --color-paper: #f1f5f8;
+  --color-card: #ffffff;
+  --color-ink: #18222d;
+  --color-muted: #5b6978;
+  --color-line: #d9e1e8;
+  --color-pee: #d9a800;
+  --color-pee-ink: #5a4500;
+  --color-pee-soft: #fff3bf;
+  --color-poo: #7a4a2a;
+  --color-poo-ink: #4a2a14;
+  --color-poo-soft: #f2e5d9;
+  --color-gold: #b88700;
+  --color-danger: #b3261e;
+  --font-display: ui-rounded, "SF Pro Rounded", "Nunito", system-ui, sans-serif;
+}
+
+@layer base {
+  :root { color-scheme: light; }
+
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      color-scheme: dark;
+      --color-paper: #0e1317;
+      --color-card: #172027;
+      --color-ink: #e7edf2;
+      --color-muted: #98a6b4;
+      --color-line: #26323c;
+      --color-pee: #f2c624;
+      --color-pee-ink: #fce79a;
+      --color-pee-soft: #352d0c;
+      --color-poo: #c68d61;
+      --color-poo-ink: #f0d3bc;
+      --color-poo-soft: #33241a;
+      --color-gold: #f2c624;
+      --color-danger: #ff8a80;
+    }
+  }
+
+  :root[data-theme="dark"] {
+    color-scheme: dark;
+    --color-paper: #0e1317;
+    --color-card: #172027;
+    --color-ink: #e7edf2;
+    --color-muted: #98a6b4;
+    --color-line: #26323c;
+    --color-pee: #f2c624;
+    --color-pee-ink: #fce79a;
+    --color-pee-soft: #352d0c;
+    --color-poo: #c68d61;
+    --color-poo-ink: #f0d3bc;
+    --color-poo-soft: #33241a;
+    --color-gold: #f2c624;
+    --color-danger: #ff8a80;
+  }
+}
+
+html, body, #root {
+  min-height: 100%;
+  background: var(--color-paper);
+  color: var(--color-ink);
+  -webkit-text-size-adjust: 100%;
+  -webkit-tap-highlight-color: transparent;
+}
+
+body {
+  margin: 0;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  padding-top: env(safe-area-inset-top);
+}
+
+select, input, textarea {
+  color: var(--color-ink);
+}
+
+button:focus-visible, input:focus-visible {
+  outline: 3px solid var(--color-ink);
+  outline-offset: 2px;
+}

@@ -1,0 +1,47 @@
+rules_version = '2';
+
+// Throne Tally: two players share one scoreboard. Anyone signed in (anonymous auth
+// from the app) may read and write, but every write must have the expected shape.
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function signedIn() { return request.auth != null; }
+    function shortString(s, max) { return s is string && s.size() > 0 && s.size() <= max; }
+
+    match /players/{slot} {
+      allow read: if signedIn();
+      allow write: if signedIn()
+        && slot in ['p1', 'p2']
+        && request.resource.data.keys().hasOnly(['slot', 'name', 'look'])
+        && request.resource.data.slot == slot
+        && shortString(request.resource.data.name, 20)
+        && request.resource.data.look is map
+        && request.resource.data.look.keys().hasOnly(['base', 'eyes', 'top'])
+        && shortString(request.resource.data.look.base, 20)
+        && shortString(request.resource.data.look.eyes, 20)
+        && shortString(request.resource.data.look.top, 20);
+    }
+
+    match /logs/{id} {
+      allow read, delete: if signedIn();
+      allow create: if signedIn()
+        && request.resource.data.keys().hasOnly(['by', 'kind', 'tags', 'at', 'day'])
+        && request.resource.data.by in ['p1', 'p2']
+        && request.resource.data.kind in ['pee', 'poo']
+        && request.resource.data.tags is list
+        && request.resource.data.tags.size() <= 20
+        && request.resource.data.at is number
+        && request.resource.data.day is string
+        && request.resource.data.day.matches('[0-9]{4}-[0-9]{2}-[0-9]{2}');
+    }
+
+    match /meta/adjectives {
+      allow read: if signedIn();
+      allow write: if signedIn()
+        && request.resource.data.keys().hasOnly(['pee', 'poo'])
+        && request.resource.data.get('pee', []) is list
+        && request.resource.data.get('poo', []) is list
+        && request.resource.data.get('pee', []).size() <= 60
+        && request.resource.data.get('poo', []).size() <= 60;
+    }
+  }
+}
