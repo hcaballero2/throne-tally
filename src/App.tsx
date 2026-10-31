@@ -8,6 +8,7 @@ import type { Store } from './data/types'
 import History from './features/history/History'
 import Home from './features/home/Home'
 import Me from './features/me/Me'
+import Login, { NotLinked } from './features/onboarding/Login'
 import PickPlayer from './features/onboarding/PickPlayer'
 import Words from './features/words/Words'
 
@@ -43,8 +44,10 @@ export default function App() {
 }
 
 function Shell() {
-  const { me, store } = useAppData()
-  if (!me) return <PickPlayer />
+  const { me, store, session } = useAppData()
+  if (session.state === 'loading') return <main className="p-5 text-muted">Loading the scores…</main>
+  if (session.state === 'out') return <Login />
+  if (!me) return store.mode === 'local' ? <PickPlayer /> : <NotLinked />
   return (
     <>
       {store.mode === 'local' && (

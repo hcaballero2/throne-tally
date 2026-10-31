@@ -1,4 +1,4 @@
-import { DEFAULT_ADJECTIVES, type Adjectives, type LogEntry, type Player, type Slot, type Store } from './types'
+import { DEFAULT_ADJECTIVES, type Adjectives, type LogEntry, type Player, type Session, type Slot, type Store } from './types'
 
 /**
  * Practice mode, used until Firebase is configured: everything stays in this
@@ -11,6 +11,25 @@ interface LocalState {
 }
 
 const KEY = 'throne-tally:local'
+const SLOT_KEY = 'throne-tally:slot'
+
+function readSlot(): Slot | null {
+  try {
+    const v = localStorage.getItem(SLOT_KEY)
+    return v === 'p1' || v === 'p2' ? v : null
+  } catch {
+    return null
+  }
+}
+
+function writeSlot(slot: Slot | null) {
+  try {
+    if (slot) localStorage.setItem(SLOT_KEY, slot)
+    else localStorage.removeItem(SLOT_KEY)
+  } catch {
+    // Private mode: the choice lasts for this visit only.
+  }
+}
 
 function load(): LocalState {
   try {
@@ -24,7 +43,15 @@ function load(): LocalState {
 
 export function createLocalStore(): Store {
   let state = load()
+  let slot = readSlot()
   const listeners = new Set<() => void>()
+  const sessionListeners = new Set<(s: Session) => void>()
+
+  function setSlot(next: Slot | null) {
+    slot = next
+    writeSlot(next)
+    sessionListeners.forEach((l) => l({ state: 'in', slot }))
+  }
 
   function commit(next: LocalState) {
     state = next
@@ -53,6 +80,20 @@ export function createLocalStore(): Store {
 
   return {
     mode: 'local',
+    watchSession(cb) {
+      cb({ state: 'in', slot })
+      sessionListeners.add(cb)
+      return () => {
+        sessionListeners.delete(cb)
+      }
+    },
+    async signIn() {
+      throw new Error('Practice mode has no accounts')
+    },
+    async signOut() {
+      setSlot(null)
+    },
+    pickSlot: setSlot,
     watchPlayers: (cb) => watch(() => cb(state.players)),
     watchLogs: (sinceDay, cb) => watch(() => cb(state.logs.filter((l) => l.day >= sinceDay))),
     watchAdjectives: (cb) => watch(() => cb(state.adjectives)),

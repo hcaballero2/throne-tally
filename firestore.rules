@@ -1,16 +1,24 @@
 rules_version = '2';
 
-// Throne Tally: two players share one scoreboard. Anyone signed in (anonymous auth
-// from the app) may read and write, but every write must have the expected shape.
+// Throne Tally: only the two accounts listed in members/{uid} can see or change anything.
+// members docs are created by hand in the Firebase console; the app can never write them.
 service cloud.firestore {
   match /databases/{database}/documents {
-    function signedIn() { return request.auth != null; }
+    function memberPath() { return /databases/$(database)/documents/members/$(request.auth.uid); }
+    function isMember() { return request.auth != null && exists(memberPath()); }
+    function mySlot() { return get(memberPath()).data.slot; }
     function shortString(s, max) { return s is string && s.size() > 0 && s.size() <= max; }
 
+    match /members/{uid} {
+      allow read: if request.auth != null && request.auth.uid == uid;
+      allow write: if false;
+    }
+
     match /players/{slot} {
-      allow read: if signedIn();
-      allow write: if signedIn()
-        && slot in ['p1', 'p2']
+      allow read: if isMember();
+      // Each of you can only edit your own name and character.
+      allow write: if isMember()
+        && slot == mySlot()
         && request.resource.data.keys().hasOnly(['slot', 'name', 'look'])
         && request.resource.data.slot == slot
         && shortString(request.resource.data.name, 20)
@@ -22,10 +30,12 @@ service cloud.firestore {
     }
 
     match /logs/{id} {
-      allow read, delete: if signedIn();
-      allow create: if signedIn()
+      allow read: if isMember();
+      // You can only log and remove your own trips.
+      allow delete: if isMember() && resource.data.by == mySlot();
+      allow create: if isMember()
         && request.resource.data.keys().hasOnly(['by', 'kind', 'tags', 'at', 'day'])
-        && request.resource.data.by in ['p1', 'p2']
+        && request.resource.data.by == mySlot()
         && request.resource.data.kind in ['pee', 'poo']
         && request.resource.data.tags is list
         && request.resource.data.tags.size() <= 20
@@ -35,8 +45,8 @@ service cloud.firestore {
     }
 
     match /meta/adjectives {
-      allow read: if signedIn();
-      allow write: if signedIn()
+      allow read: if isMember();
+      allow write: if isMember()
         && request.resource.data.keys().hasOnly(['pee', 'poo'])
         && request.resource.data.get('pee', []) is list
         && request.resource.data.get('poo', []) is list

@@ -7,7 +7,7 @@ import type { Look } from '../../data/types'
 
 /** Edit this phone's player: name and character. Each tap saves straight away. */
 export default function Me() {
-  const { store, players, me, setMe } = useAppData()
+  const { store, players, me } = useAppData()
   const toast = useToast()
   const player = me ? players[me] : null
   const [name, setName] = useState(player?.name ?? '')
@@ -77,10 +77,14 @@ export default function Me() {
 
       <button
         type="button"
-        onClick={() => setMe(null)}
+        onClick={() => {
+          if (store.mode === 'local' || window.confirm('Log out on this phone? You will need your password to log back in.')) {
+            void store.signOut()
+          }
+        }}
         className="rounded-2xl border-[1.5px] border-line bg-card px-4 py-3 font-semibold text-muted"
       >
-        Switch player on this phone
+        {store.mode === 'local' ? 'Switch player on this phone' : 'Log out'}
       </button>
     </main>
   )

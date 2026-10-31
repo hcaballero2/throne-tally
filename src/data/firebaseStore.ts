@@ -1,16 +1,40 @@
 import { initializeApp, type FirebaseOptions } from 'firebase/app'
-import { getAuth, signInAnonymously } from 'firebase/auth'
+import { getAuth, onAuthStateChanged, signInWithEmailAndPassword, signOut as fbSignOut } from 'firebase/auth'
 import {
   addDoc, arrayRemove, arrayUnion, collection, deleteDoc, doc, getDoc, initializeFirestore,
   onSnapshot, persistentLocalCache, persistentMultipleTabManager, query, setDoc, where,
 } from 'firebase/firestore'
-import { DEFAULT_ADJECTIVES, type Adjectives, type Kind, type LogEntry, type Player, type Slot, type Store } from './types'
+import {
+  DEFAULT_ADJECTIVES, type Adjectives, type Kind, type LogEntry, type Player, type Slot, type Store,
+} from './types'
+
+/** Last known uid → seat link, so an offline launch still knows who this phone is. */
+const MEMBER_KEY = 'throne-tally:member'
+
+function cachedSlot(uid: string): Slot | null {
+  try {
+    const v = JSON.parse(localStorage.getItem(MEMBER_KEY) ?? 'null') as { uid: string; slot: Slot } | null
+    return v?.uid === uid ? v.slot : null
+  } catch {
+    return null
+  }
+}
+
+function cacheSlot(uid: string, slot: Slot | null) {
+  try {
+    if (slot) localStorage.setItem(MEMBER_KEY, JSON.stringify({ uid, slot }))
+    else localStorage.removeItem(MEMBER_KEY)
+  } catch {
+    // Storage blocked: the next launch looks the seat up again.
+  }
+}
 
 /**
  * Firestore layout:
  *   players/{p1|p2}     Player
  *   logs/{auto}         LogEntry without id
  *   meta/adjectives     { pee: string[], poo: string[] }
+ *   members/{uid}       { slot } links an account to a seat; created by hand in the Firebase console
  */
 export async function createFirebaseStore(config: FirebaseOptions): Promise<Store> {
   const app = initializeApp(config)
@@ -19,11 +43,8 @@ export async function createFirebaseStore(config: FirebaseOptions): Promise<Stor
     localCache: persistentLocalCache({ tabManager: persistentMultipleTabManager() }),
   })
 
-  // Anonymous sign-in so the security rules can require an authenticated app.
-  // The session persists on the phone, so an offline launch reuses it.
+  // Firebase keeps the signed-in account in IndexedDB, so each phone logs in once.
   const auth = getAuth(app)
-  await auth.authStateReady()
-  if (!auth.currentUser) await signInAnonymously(auth)
 
   const adjRef = doc(db, 'meta', 'adjectives')
 
@@ -35,6 +56,36 @@ export async function createFirebaseStore(config: FirebaseOptions): Promise<Stor
 
   return {
     mode: 'firebase',
+
+    watchSession(cb) {
+      cb({ state: 'loading' })
+      return onAuthStateChanged(auth, async (user) => {
+        // Anonymous sessions came from the first version of the app; the rules no longer accept them.
+        if (!user || user.isAnonymous) {
+          if (user) await fbSignOut(auth)
+          cb({ state: 'out' })
+          return
+        }
+        let slot: Slot | null
+        try {
+          const snap = await getDoc(doc(db, 'members', user.uid))
+          const v = snap.data()?.slot
+          slot = v === 'p1' || v === 'p2' ? v : null
+          cacheSlot(user.uid, slot)
+        } catch {
+          slot = cachedSlot(user.uid)
+        }
+        cb({ state: 'in', slot })
+      })
+    },
+
+    async signIn(email, password) {
+      await signInWithEmailAndPassword(auth, email.trim(), password)
+    },
+
+    async signOut() {
+      await fbSignOut(auth)
+    },
 
     watchPlayers(cb) {
       return onSnapshot(collection(db, 'players'), (snap) => {

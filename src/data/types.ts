@@ -45,9 +45,20 @@ export const DEFAULT_PLAYERS: Record<Slot, Player> = {
 
 export type Unsubscribe = () => void
 
+/**
+ * Who is using this phone. Firebase: an email/password account linked to a seat by members/{uid}.
+ * Practice mode: always signed in; the seat is picked on screen. slot is null when not linked or not picked yet.
+ */
+export type Session = { state: 'loading' } | { state: 'out' } | { state: 'in'; slot: Slot | null }
+
 /** Everything the screens need from storage. Firebase in production, localStorage before it is set up. */
 export interface Store {
   readonly mode: 'firebase' | 'local'
+  watchSession(cb: (session: Session) => void): Unsubscribe
+  signIn(email: string, password: string): Promise<void>
+  signOut(): Promise<void>
+  /** Practice mode only: choose a seat without an account. */
+  pickSlot?(slot: Slot): void
   watchPlayers(cb: (players: Partial<Record<Slot, Player>>) => void): Unsubscribe
   watchLogs(sinceDay: string, cb: (logs: LogEntry[]) => void): Unsubscribe
   watchAdjectives(cb: (adjectives: Adjectives) => void): Unsubscribe
